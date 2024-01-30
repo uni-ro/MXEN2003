@@ -13,6 +13,7 @@
 # include <avr/io.h>
 
 //macros
+# define USART_BAUDRATE 9600
 # define BAUD_PRESCALE ((((F_CPU/16)+(USART_BAUDRATE/2))/(USART_BAUDRATE))-1)
 
 //function prototypes
