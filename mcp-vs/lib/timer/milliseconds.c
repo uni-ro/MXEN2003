@@ -22,4 +22,8 @@ void milliseconds_init(void)
 	sei(); // enable global interrupts
 }
 
-ISR(TIMER5_COMPA_vect){	//interrupt flag in ICF1 will be automatically cleared	milliseconds++; //increment number of milliseconds since boot}
+ISR(TIMER5_COMPA_vect)
+{
+	//interrupt flag in ICF1 will be automatically cleared
+	milliseconds++; //increment number of milliseconds since boot
+}
