@@ -22,6 +22,21 @@ void milliseconds_init(void)
 	sei(); // enable global interrupts
 }
 
+uint32_t milliseconds_now(void)
+{
+
+	uint32_t m;
+	uint8_t oldSREG = SREG;
+
+	// disable interrupts while we read timer0_millis or we might get an
+	// inconsistent value (e.g. in the middle of a write to timer0_millis)
+	cli();
+	m = milliseconds;
+	SREG = oldSREG;
+
+	return m;
+}
+
 ISR(TIMER5_COMPA_vect)
 {
 	//interrupt flag in ICF1 will be automatically cleared
