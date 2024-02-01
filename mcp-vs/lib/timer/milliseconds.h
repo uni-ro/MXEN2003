@@ -17,6 +17,7 @@ extern volatile uint32_t milliseconds;
 
 //function prototype
 void milliseconds_init(void);
+uint32_t milliseconds_now(void);
 
 
 #endif /* MILLISECONDS_H_ */
