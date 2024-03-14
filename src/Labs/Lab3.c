@@ -1,22 +1,20 @@
-//Example ATmega2560 Project
-//File: ATmega2560Project.c
-//An example file for second year mechatronics project
-
-//include this .c file's header file
 #include "Controller.h"
 
-//#include "Labs/Lab1.c"
-//#include "Labs/Lab2.c"
-//#include "Labs/Lab3.c"
-
-//static function prototypes, functions only called in this file
+#define INCLUDE_MAIN false
 
 
+uint8_t Blinking_1(uint8_t* port, uint8_t pin)
+{
 
+  _delay_ms(500);     
+  *port |= (1 << pin);
+  _delay_ms(500); 
+  *port &= ~(1 << pin);
 
+  return 0;
+}
 
-
-
+#if INCLUDE_MAIN
 int main(void)
 {
   cli();
@@ -34,15 +32,12 @@ int main(void)
 
   }
   return(1);
-}//end main 
+}
 
 ISR(INT0_vect)
 {
   PORTA ^= (1<<PA0);
 }
-
-
-
 
 void Part1()
 {
@@ -55,6 +50,4 @@ void Part1()
   }
   return(1);
 }
-
-
-
+#endif
