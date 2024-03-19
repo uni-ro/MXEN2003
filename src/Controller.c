@@ -51,7 +51,8 @@ int main(void)
     sensorValue = 5*((sensorValue * 100) / 1023);
 
     //distance = 39130/(sensorValue*10)-9;
-    distance = 22000 / (sensorValue*10 - 12);
+    //distance = 22000 / (sensorValue*10 - 12);
+    distance = 2213*10 / (sensorValue*10 - 18*10);
 
     lcd_home();       // same as lcd_goto(0);
 		lcd_puts("Sensor Value:"); //Print string to LCD first line
