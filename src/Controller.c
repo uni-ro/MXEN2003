@@ -65,8 +65,7 @@ int main(void)
 ISR(INT0_vect)
 {
   //Start/Stop button
-  if (!stop) {stop = true;}
-  else {stop = false;}
+  stop = !stop;
 }
 
 ISR(INT1_vect)
