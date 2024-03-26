@@ -13,61 +13,84 @@
 
 
 
+bool stop = false;
 
-
-bool freezeValue = false;
+uint8_t mseconds = 0;
+uint8_t seconds = 0;
+uint8_t minutes = 0;
 
 int main(void)
 {
   //variable declarations
 	char lcd_string[33] = {0}; //declare and initialise string for LCD
 
-  //Initialising interrupt
   cli();
-  DDRD &= ~(1<<PD0);
-  EICRA |= (1<<ISC01);
-  EICRA &= ~(1<<ISC00);
-  EIMSK |= (1<<INT0);
+
+  //Initialising timer registers:
+  TCCR1A = 0x00;
+  //TCCR1B = 0x0A;
+  TCCR1B = (1<<WGM12) | (1<<CS11); // Enable CTC mode and prescaler = 8
+  TIMSK1 |= (1<<OCIE1A); // Enables the compare mode on channel A
+
+  OCR1A = 19999; // 0x4E1F in hex
+  
+  //Button interrupts
+  DDRD &= ~(1<<PD0 | 1<<PD1);
+  EICRA |= (1<<ISC01 | 1<<ISC11); // On falling edge
+  EICRA &= ~(1<<ISC00 | 1<<ISC10); // On falling edge
+  EIMSK |= (1<<INT0 | 1<<INT1);
+  
+  
   sei();
 
 	//initialisation section, runs once
-	adc_init(); //initialse ADC
 	lcd_init(); //initialise 
 
 	_delay_ms(20);
 
-	uint16_t variableToPrint;
-
-  uint16_t sensorValue;
-
-  uint16_t distance;
-
 	//main loop
 	while(1)
 	{	
-		
-    sensorValue = adc_read(0);
-
-    sensorValue = 5*((sensorValue * 100) / 1023);
-
-    //distance = 39130/(sensorValue*10)-9;
-    //distance = 22000 / (sensorValue*10 - 12);
-    distance = 2213*10 / (sensorValue*10 - 18*10);
 
     lcd_home();       // same as lcd_goto(0);
-		lcd_puts("Sensor Value:"); //Print string to LCD first line
+		lcd_puts("Timer Value:"); //Print string to LCD first line
 		lcd_goto( 0x40 );     //Put cursor to first character on second line
-		sprintf( lcd_string , "%3u cm" , distance ); 
-    //print to string, %u special character to be replaced by variables in later arguments
-    if (!freezeValue) {lcd_puts( lcd_string );} //Print string to LCD second line, same as first line
-    //%u for unsigned integers, %i,%d for signed integers
-    //%lu for long unsigned ...
+		sprintf( lcd_string , "%2u:%2u:%3u" , minutes, seconds, mseconds * 10); 
+
+    lcd_puts( lcd_string );
 	}
 	return(1);
 }//end main 
 
 ISR(INT0_vect)
 {
-  if (!freezeValue) {freezeValue = true;}
-  else {freezeValue = false;}
+  //Start/Stop button
+  if (!stop) {stop = true;}
+  else {stop = false;}
+}
+
+ISR(INT1_vect)
+{
+  //Reset button
+  mseconds = 0;
+  seconds = 0;
+  minutes = 0;
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+  if(!stop) mseconds += 1;
+  
+  if (mseconds > 99)
+  {
+    mseconds = 0;
+    seconds += 1;
+  }
+
+  if(seconds > 59)
+  {
+    mseconds = 0;
+    seconds = 0;
+    minutes += 1;
+  }
 }
