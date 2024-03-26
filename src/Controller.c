@@ -13,8 +13,6 @@
 
 
 
-bool stop = false;
-
 uint8_t mseconds = 0;
 uint8_t seconds = 0;
 uint8_t minutes = 0;
@@ -65,7 +63,7 @@ int main(void)
 ISR(INT0_vect)
 {
   //Start/Stop button
-  stop = !stop;
+  TCCR1B *= (1<<CS11);
 }
 
 ISR(INT1_vect)
@@ -78,7 +76,7 @@ ISR(INT1_vect)
 
 ISR(TIMER1_COMPA_vect)
 {
-  if(!stop) mseconds += 1;
+  mseconds += 1;
   
   if (mseconds > 99)
   {
