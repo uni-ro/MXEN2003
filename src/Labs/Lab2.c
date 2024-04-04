@@ -6,7 +6,7 @@
 #if INCLUDE_MAIN
 int main()
 {
-    DDRA = 0;//put PORTA into output mode
+    DDRA = 0;//put PORTA into input mode
     PORTA = 1; 
     bool counter = 0;
 
