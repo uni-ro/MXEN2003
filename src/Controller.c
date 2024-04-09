@@ -11,83 +11,54 @@
 
 //static function prototypes, functions only called in this file
 
-
-
-uint8_t mseconds = 0;
-uint8_t seconds = 0;
-uint8_t minutes = 0;
-
 int main(void)
 {
-  //variable declarations
-	char lcd_string[33] = {0}; //declare and initialise string for LCD
+  serial0_init();
 
-  cli();
+  char * serial_string[16] = {0};
 
-  //Initialising timer registers:
-  TCCR1A = 0x00;
-  //TCCR1B = 0x0A;
-  TCCR1B = (1<<WGM12) | (1<<CS11); // Enable CTC mode and prescaler = 8
-  TIMSK1 |= (1<<OCIE1A); // Enables the compare mode on channel A
+  DDRB |= (1<<PB6);
+  DDRE |= (1<<PE4);
+  adc_init();
 
-  OCR1A = 19999; // 0x4E1F in hex
-  
-  //Button interrupts
-  DDRD &= ~(1<<PD0 | 1<<PD1);
-  EICRA |= (1<<ISC01 | 1<<ISC11); // On falling edge
-  EICRA &= ~(1<<ISC00 | 1<<ISC10); // On falling edge
-  EIMSK |= (1<<INT0 | 1<<INT1);
-  
-  
-  sei();
+  // Init for TCCR1
+  TCCR1A |= (1<<WGM10);
+  TCCR1B |= (1<<WGM13);
 
-	//initialisation section, runs once
-	lcd_init(); //initialise 
+  TCCR1A |= (1<<COM1B0 | 1<<COM1B1);
+  TCCR1B |= (1<<CS11);
 
-	_delay_ms(20);
+  // Init for TCCR3
+  TCCR3A |= (1<<WGM30);
+  TCCR3B |= (1<<WGM33);
+
+  TCCR3A |= (1<<COM3B0 | 1<<COM3B1);
+  TCCR3B |= (1<<CS31);
+
+  //OCR1B = 19080;  // The COMP value for 620us (0 degrees)
+  OCR1B = 18030; // The COMP value for 2420us (180 degrees)
+  OCR1A = 20000;
+
+  OCR3B = 18030;
+  OCR3A = 20000;
 
 	//main loop
 	while(1)
 	{	
+    uint32_t xVal = adc_read(PF0);
+    uint32_t yVal = adc_read(PF1);
 
-    lcd_home();       // same as lcd_goto(0);
-		lcd_puts("Timer Value:"); //Print string to LCD first line
-		lcd_goto( 0x40 );     //Put cursor to first character on second line
-		sprintf( lcd_string , "%2u:%2u:%3u" , minutes, seconds, mseconds * 10); 
+    xVal = (xVal * 1050 / 1023) + 18030; 
+    yVal = (yVal * 1050 / 1023) + 18030; 
 
-    lcd_puts( lcd_string );
+    sprintf(serial_string, "xVal: %u\t", xVal);
+    serial0_print_string(serial_string);
+
+    sprintf(serial_string, "yVal: %u\n", yVal);
+    serial0_print_string(serial_string);
+
+    OCR1B = xVal;
+    OCR3B = yVal;
 	}
 	return(1);
 }//end main 
-
-ISR(INT0_vect)
-{
-  //Start/Stop button
-  TCCR1B *= (1<<CS11);
-}
-
-ISR(INT1_vect)
-{
-  //Reset button
-  mseconds = 0;
-  seconds = 0;
-  minutes = 0;
-}
-
-ISR(TIMER1_COMPA_vect)
-{
-  mseconds += 1;
-  
-  if (mseconds > 99)
-  {
-    mseconds = 0;
-    seconds += 1;
-  }
-
-  if(seconds > 59)
-  {
-    mseconds = 0;
-    seconds = 0;
-    minutes += 1;
-  }
-}
