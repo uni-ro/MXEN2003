@@ -7,132 +7,150 @@
 
 //static function prototypes, functions only called in this file
 
-volatile uint16_t leftHorizontalControllerData = 0, leftVerticalControllerData = 0;
+static char serial_string[200] = {0};
+volatile uint8_t dataByte1=0, dataByte2=0, dataByte3=0, dataByte4=0, dataByte5=0, dataByte6=0;		// data bytes received
+volatile bool new_message_received_flag=false;
 
-volatile uint16_t rightHorizontalControllerData = 0, rightVerticalControllerData = 0;
 
-volatile bool new_message_received_flag = false;
-char * serial_string[16] = {0};
 int main(void)
 {
-  serial0_init();
-  serial2_init();
-  adc_init();
-  sei();
-
-  UCSR2B |= (1 << RXCIE2);
-
   
-  milliseconds_init();
+  DDRA = 1;
+  DDRB |= (1 << PB6);
 
+  // Init for TCCR1
+  TCCR1A |= (1<<WGM10); // Set to mode 9
+  TCCR1B |= (1<<WGM13);
+
+  TCCR1A |= (1<<COM1B0 | 1<<COM1B1); // Set to clear on down and set on up
+  TCCR1B |= (1<<CS10);
+
+  OCR1B = 10000; // The COMP value for 50% speed
+  OCR1A = 20000; // The TOP value for 400Hz
+
+  // initialisation
+	serial0_init(); 	// terminal communication with PC
+	serial2_init();		// microcontroller communication to/from another Arduino
+	// or loopback communication to same Arduino
+	
+	UCSR2B |= (1 << RXCIE2); // Enable the USART Receive Complete interrupt (USART_RXC)
+	
+	milliseconds_init();
+	sei();
 
   while(1)//main loop
   {
-    uint32_t ms_now = milliseconds_now();
-    uint32_t ms_prev_send = 0;
 
+    //if a new byte has been received
+		if(new_message_received_flag) 
+		{
 
-    if(!new_message_received_flag)
-    {
-      if (ms_now - ms_prev_send >= 100)
+      uint32_t leftStickH = (((uint16_t) dataByte1) << 8) + ((uint16_t) dataByte2);
+      uint32_t rightStick = (((uint16_t) dataByte3) << 8) + ((uint16_t) dataByte4);
+      uint32_t leftStickV = (((uint16_t) dataByte5) << 8) + ((uint16_t) dataByte6);
+
+			// now that a full message has been received, we can process the whole message
+			// the code in this section will implement the result of your message
+			//sprintf(serial_string, "received: 1:%4d, 2:%4d , 3:%4d , 4:%4d \n Total: L: %4u\t R: %4u\n", dataByte1, dataByte2, dataByte3, dataByte4, newByte, newByte2);
+			//serial0_print_string(serial_string);  // print the received bytes to the USB serial to make sure the right messages are received
+
+      OCR1B = rightStick * 20000 / 1021;
+
+      sprintf(serial_string, "received: Left Stick Horizontal: %4lu, Left Stick Vertical: %4lu, Right Stick: %lu\n", leftStickH, leftStickV, rightStick);
+      serial0_print_string(serial_string);
+
+			new_message_received_flag=false;	// set the flag back to false
+      
+      if(leftStickV >= 600)//move forward
       {
-        ms_prev_send = ms_now;
-
-        sprintf(serial_string, "lHVal: %u\n", leftHorizontalControllerData);
-        serial0_print_string(serial_string);
-        new_message_received_flag = false;
-
-        serial2_write_byte(0xFF); // Start
-
-        serial2_write_byte(0x5B);
-
-        serial2_write_byte(0xFE); // End
+        PORTA |= ((1<< PA0) | (1<<PA3));
+        PORTA &= ~((1<< PA1) | (1<<PA2));
       }
-    }
+      else if(leftStickV <= 400) //move back
+      {
+        PORTA |= ((1<< PA1) | (1<<PA2));
+        PORTA &= ~((1<< PA0) | (1<<PA3));
+      }
+      else if(leftStickH >= 600) // move right
+      {
+        PORTA |= ((1<< PA0) | (1<<PA2));
+        PORTA &= ~((1<< PA1) | (1<<PA3));
+      }
+      else if(leftStickH <= 400)//move left
+      {
+        PORTA |= ((1<< PA1) | (1<<PA3));
+        PORTA &= ~((1<< PA0) | (1<<PA2));
+      }
+      else 
+      {
+        PORTA &= ~((1<< PA1) | (1<<PA3));
+        PORTA &= ~((1<< PA0) | (1<<PA2));
+      }
+		}
+
+
     
+
     
   }
   return(1);
-
-
-  //0x0FFC & 0x00FF;
-  //0x0FFC >> 8;
-
-
 }//end main 
 
-uint8_t firstDataByte = 0;
-
-ISR(USART2_RX_vect)
+ISR(USART2_RX_vect)  // ISR executed whenever a new byte is available in the serial buffer
 {
-  static uint8_t serial_fsm_state = 0;
-  uint8_t serial_data_in = UDR2;
-
-  uint8_t* leftController;
-  uint8_t* rightController;
-
-  switch(serial_fsm_state)
-  {
-    case 0:
-      break; // Find start byte and do nothing
-    case 1:
-      if (serial_data_in == 0x00)
-      {
-        *leftController = &leftHorizontalControllerData;
-      }
-      else if (serial_data_in == 0x01)
-      {
-        *leftController = &leftVerticalControllerData;
-      }
-      serial_fsm_state++;
-      break;
-    case 2:
-      firstDataByte = serial_data_in << 8;
-      serial_fsm_state++;
-      break;
-    case 3:
-      firstDataByte += serial_data_in;
-      leftHorizontalControllerData = firstDataByte;
-      serial_fsm_state++;
-      break;
-
-    case 4:
-      if (serial_data_in == 0x02)
-      {
-        *rightController = &rightHorizontalControllerData;
-      }
-      else if (serial_data_in == 0x03)
-      {
-        *rightController = &rightVerticalControllerData;
-      }
-      serial_fsm_state++;
-      break;
-
+	static uint8_t recvByte1=0, recvByte2=0, recvByte3=0, recvByte4=0, recvByte5=0, recvByte6=0;		// data bytes received
+	static uint8_t serial_fsm_state=0;									// used in the serial receive ISR
+	uint8_t	serial_byte_in = UDR2; //move serial byte into variable
+	
+	switch(serial_fsm_state) //switch by the current state
+	{
+		case 0:
+		//do nothing, if check after switch case will find start byte and set serial_fsm_state to 1
+		break;
+		case 1: //waiting for first parameter
+		recvByte1 = serial_byte_in;
+		serial_fsm_state++;
+		break;
+		case 2: //waiting for second parameter
+		recvByte2 = serial_byte_in;
+		serial_fsm_state++;
+		break;
+		case 3: //waiting for second parameter
+		recvByte3 = serial_byte_in;
+		serial_fsm_state++;
+		break;
+		case 4: //waiting for second parameter
+		recvByte4 = serial_byte_in;
+		serial_fsm_state++;
+		break;
     case 5:
-      firstDataByte = serial_data_in << 8;
-      serial_fsm_state++;
-      break;
+    recvByte5 = serial_byte_in;
+    serial_fsm_state++;
+    break;
     case 6:
-      firstDataByte += serial_data_in;
-      rightController = firstDataByte;
-      serial_fsm_state++;
-      break;
-
-    case 7:
-
-
-      if (serial_data_in == 0xFE)
-      {
-        new_message_received_flag = true;
-      }
-
-      serial_fsm_state = 0;
-      break;
-  }
-
-  if (serial_data_in == 0xFF)
-  {
-    serial_fsm_state = 1;
-  }
-  
+    recvByte6 = serial_byte_in;
+    serial_fsm_state++;
+    break;
+		case 7: //waiting for stop byte
+		if(serial_byte_in == 0xFE) //stop byte
+		{
+			// now that the stop byte has been received, set a flag so that the
+			// main loop can execute the results of the message
+			dataByte1 = recvByte1;
+			dataByte2 = recvByte2;
+			dataByte3 = recvByte3;
+			dataByte4 = recvByte4;
+      dataByte5 = recvByte5;
+      dataByte6 = recvByte6;
+			
+			new_message_received_flag=true;
+		}
+		// if the stop byte is not received, there is an error, so no commands are implemented
+		serial_fsm_state = 0; //do nothing next time except check for start byte (below)
+		break;
+	}
+	if(serial_byte_in == 0xFF) //if start byte is received, we go back to expecting the first data byte
+	{
+		serial_fsm_state=1;
+	}
 }
