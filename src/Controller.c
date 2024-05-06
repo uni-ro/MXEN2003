@@ -16,7 +16,7 @@ int main(void)
 	serial0_init(); 	// terminal communication with PC
 	serial2_init();		// microcontroller communication to/from another Arduino
 	// or loopback communication to same Arduino
-	
+
 	uint8_t sendDataByte1=0, sendDataByte2=0, sendDataByte3=0, sendDataByte4=0, sendDataByte5 = 0, sendDataByte6 = 0;		// data bytes sent
 	
 	uint32_t current_ms=0, last_send_ms=0;			// used for timing the serial send
